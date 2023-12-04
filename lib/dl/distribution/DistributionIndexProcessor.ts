@@ -9,6 +9,7 @@ import { mcVersionAtLeast } from '../../common/util/MojangUtils'
 import { copyFile, ensureDir, exists, readFile, readJson, writeFile, writeJson } from 'fs-extra'
 import StreamZip from 'node-stream-zip'
 import { dirname, join } from 'path'
+import { VersionJsonBase } from '../mojang/MojangTypes'
 import { spawn } from 'child_process'
 
 const logger = LoggerUtil.getLogger('DistributionIndexProcessor')
@@ -212,51 +213,35 @@ export class DistributionIndexProcessor extends IndexProcessor {
         await copyFile(srcForgeManifest, forgeManifest)
     }
 
-    // TODO Type the return type.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    public async loadForgeVersionJson(): Promise<any> {
+    public async loadModLoaderVersionJson(): Promise<VersionJsonBase> {
 
         const server: HeliosServer = this.distribution.getServerById(this.serverId)!
         if(server == null) {
             throw new AssetGuardError(`Invalid server id ${this.serverId}`)
         }
 
-        const forgeModule = server.modules.find(({ rawModule: { type } }) => type === Type.ForgeHosted || type === Type.Forge)
+        const modLoaderModule = server.modules.find(({ rawModule: { type } }) => type === Type.ForgeHosted || type === Type.Forge || type === Type.Fabric)
 
-        if(forgeModule == null) {
-            throw new AssetGuardError('No Forge module found!')
+        if(modLoaderModule == null) {
+            throw new AssetGuardError('No mod loader found!')
         }
 
-        if(DistributionIndexProcessor.isForgeGradle3(server.rawServer.minecraftVersion, forgeModule.getMavenComponents().version)) {
-
-            const versionManifstModule = forgeModule.subModules.find(({ rawModule: { type }}) => type === Type.VersionManifest)
-            if(versionManifstModule != null) {
-                // For 1.12, the version manifest is in the distribution.json.
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-                return await readJson(versionManifstModule.getPath(), 'utf-8')
-            }
-
-            // Forge version is in the format: 1.16.5-36.2.39.json
-            const forgeVersion = forgeModule.getMavenComponents().version
-            const forgeManifest = join(this.commonDir, 'versions', forgeVersion, `${forgeVersion}.json`)
-
-            logger.info('Loading forge version json from', forgeManifest)
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-            return await readJson(forgeManifest, 'utf-8')
-
+        if(modLoaderModule.rawModule.type === Type.Fabric
+            || DistributionIndexProcessor.isForgeGradle3(server.rawServer.minecraftVersion, modLoaderModule.getMavenComponents().version)) {
+            return await this.loadVersionManifest<VersionJsonBase>(modLoaderModule)
         } else {
 
-            const zip = new StreamZip.async({ file: forgeModule.getPath() })
+            const zip = new StreamZip.async({ file: modLoaderModule.getPath() })
 
             try {
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-                const data = JSON.parse((await zip.entryData('version.json')).toString('utf8'))
-                const writePath = getVersionJsonPath(this.commonDir, data.id as string)
+
+                const data = JSON.parse((await zip.entryData('version.json')).toString('utf8')) as VersionJsonBase
+                const writePath = getVersionJsonPath(this.commonDir, data.id)
     
                 await ensureDir(dirname(writePath))
                 await writeJson(writePath, data)
     
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-return
                 return data
             }
             finally {
@@ -264,6 +249,23 @@ export class DistributionIndexProcessor extends IndexProcessor {
             }
             
         }
+    }
+
+    public async loadVersionManifest<T>(modLoaderModule: HeliosModule): Promise<T> {
+        const versionManifstModule = modLoaderModule.subModules.find(({ rawModule: { type }}) => type === Type.VersionManifest)
+        if(versionManifstModule == null) {
+            //throw new AssetGuardError('No mod loader version manifest module found!')
+
+            // Load the forge installer generated version.json instead of the version manifest.
+            // Forge version is in the format: 1.16.5-36.2.39.json
+            const modLoaderVersion = modLoaderModule.getMavenComponents().version
+            const modLoaderManifest = join(this.commonDir, 'versions', modLoaderVersion, `${modLoaderVersion}.json`)
+
+            logger.info('Loading forge version json from', modLoaderManifest)
+            return await readJson(modLoaderManifest, 'utf-8') as T
+        }
+
+        return await readJson(versionManifstModule.getPath(), 'utf-8') as T
     }
 
     // TODO Move this to a util maybe
