@@ -120,6 +120,7 @@ export class MicrosoftAuth {
     private static readonly TIMEOUT = 2500
 
     public static readonly TOKEN_ENDPOINT = 'https://login.microsoftonline.com/consumers/oauth2/v2.0/token'
+    public static readonly TOKEN_ENDPOINT_LIVE = 'https://login.live.com/oauth20_token.srf'
     public static readonly XBL_AUTH_ENDPOINT = 'https://user.auth.xboxlive.com/user/authenticate'
     public static readonly XSTS_AUTH_ENDPOINT = 'https://xsts.auth.xboxlive.com/xsts/authorize'
     public static readonly MC_AUTH_ENDPOINT = 'https://api.minecraftservices.com/authentication/login_with_xbox'
@@ -156,7 +157,6 @@ export class MicrosoftAuth {
 
         return response
     }
-
     /**
      * Acquire a Microsoft Access Token, either for the first time or through refreshing an existing token.
      * 
@@ -208,14 +208,64 @@ export class MicrosoftAuth {
     }
 
     /**
+     * Acquire a Microsoft Access Token, either for the first time or through refreshing an existing token.
+     * 
+     * @param code Authorization Code or Refresh Token
+     * @param refresh True if this is a refresh, false otherwise.
+     * @param clientId The Azure Application (client) ID.
+     * @returns A MicrosoftResponse for this operation.
+     * 
+     * @see https://wiki.vg/Microsoft_Authentication_Scheme#Authorization_Code_-.3E_Authorization_Token
+     * @see https://wiki.vg/Microsoft_Authentication_Scheme#Refreshing_Tokens
+     */
+    public static async getAccessTokenLive(code: string, refresh: boolean, clientId: string): Promise<MicrosoftResponse<AuthorizationTokenResponse | null>> {
+        try {
+            const BASE_FORM: AbstractTokenRequest = {
+                client_id: clientId,
+                scope: 'service::user.auth.xboxlive.com::MBI_SSL',
+                redirect_uri: 'https://login.live.com/oauth20_desktop.srf',
+            }
+
+            let form
+            if(refresh) {
+                form = {
+                    ...BASE_FORM,
+                    refresh_token: code,
+                    grant_type: 'refresh_token'
+                } as RefreshTokenRequest
+            } else {
+                form = {
+                    ...BASE_FORM,
+                    code: code,
+                    grant_type: 'authorization_code'
+                } as AuthTokenRequest
+            }
+
+            const url = `${this.TOKEN_ENDPOINT_LIVE}?${new URLSearchParams(form as unknown as {[key: string]: string})}`
+            const res = await got.get<AuthorizationTokenResponse>(url, {
+                responseType: 'json'
+            })
+
+            return {
+                data: res.body,
+                responseStatus: RestResponseStatus.SUCCESS
+            }
+
+        } catch(error) {
+            return MicrosoftAuth.handleGotError(`Get ${refresh ? 'Refresh' : 'Auth'} Token`, error as RequestError, () => null)
+        }
+    }
+
+    /**
      * Authenticate with Xbox Live with a Microsoft Access Token.
      * 
      * @param accessToken A Microsoft Access Token, from getAccessToken.
+     * @param isCustomAzureApplication True if the Azure Application is custom, false first-party.
      * @returns A MicrosoftResponse for this operation.
      * 
      * @see https://wiki.vg/Microsoft_Authentication_Scheme#Authenticate_with_XBL
      */
-    public static async getXBLToken(accessToken: string): Promise<MicrosoftResponse<XboxServiceTokenResponse | null>> {
+    public static async getXBLToken(accessToken: string, isCustomAzureApplication = true): Promise<MicrosoftResponse<XboxServiceTokenResponse | null>> {
         try {
 
             // TODO TYPE REQUEST
@@ -224,7 +274,7 @@ export class MicrosoftAuth {
                     Properties: {
                         AuthMethod: 'RPS',
                         SiteName: 'user.auth.xboxlive.com',
-                        RpsTicket: `d=${accessToken}`
+                        RpsTicket: `${isCustomAzureApplication ? 'd=' : ''}${accessToken}`
                     },
                     RelyingParty: 'http://auth.xboxlive.com',
                     TokenType: 'JWT'
