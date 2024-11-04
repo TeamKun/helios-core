@@ -1,4 +1,4 @@
-import { DisplayableError, RestResponse } from '../../common/rest/RestResponse'
+import { RestResponse } from '../../common/rest/RestResponse'
 
 /**
  * Various error codes from any point of the Microsoft authentication process.
@@ -68,7 +68,7 @@ export function decipherErrorCode(body: any): MicrosoftErrorCode {
     if(body) {
         if(body.XErr) {
             const xErr: number = body.XErr as number
-            switch(xErr) {
+            switch(xErr as MicrosoftErrorCode) {
                 case MicrosoftErrorCode.NO_XBOX_ACCOUNT:
                     return MicrosoftErrorCode.NO_XBOX_ACCOUNT
                 case MicrosoftErrorCode.XBL_BANNED:
