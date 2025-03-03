@@ -988,21 +988,29 @@ export class Win32RegistryJavaDiscoverer implements JavaDiscoverer {
 
 
 export async function getValidatableJavaPaths(dataDir: string): Promise<string[]> {
-    let discoverers: JavaDiscoverer[]
-    switch(process.platform) {
-        case Platform.WIN32:
-            discoverers = await getWin32Discoverers(dataDir)
-            break
-        case Platform.DARWIN:
-            discoverers = await getDarwinDiscoverers(dataDir)
-            break
-        case Platform.LINUX:
-            discoverers = await getLinuxDiscoverers(dataDir)
-            break
-        default:
-            discoverers = []
-            log.warn(`Unable to discover Java paths on platform: ${process.platform}`)
-    }
+    // 環境のJavaは使わない
+    // let discoverers: JavaDiscoverer[]
+    // switch(process.platform) {
+    //     case Platform.WIN32:
+    //         discoverers = await getWin32Discoverers(dataDir)
+    //         break
+    //     case Platform.DARWIN:
+    //         discoverers = await getDarwinDiscoverers(dataDir)
+    //         break
+    //     case Platform.LINUX:
+    //         discoverers = await getLinuxDiscoverers(dataDir)
+    //         break
+    //     default:
+    //         discoverers = []
+    //         log.warn(`Unable to discover Java paths on platform: ${process.platform}`)
+    // }
+
+    // ランチャーのJavaのみを使う
+    const discoverers: JavaDiscoverer[] = [
+        new DirectoryBasedJavaDiscoverer([
+            getLauncherRuntimeDir(dataDir)
+        ])
+    ]
 
     let paths: string[] = []
     for(const discover of discoverers) {
