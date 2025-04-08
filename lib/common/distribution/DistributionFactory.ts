@@ -141,7 +141,6 @@ export class HeliosServer {
             return ['8.x', 8]
         }
     }
-
     private defaultJavaPlatform(): JdkDistribution {
         return process.platform === Platform.DARWIN ? JdkDistribution.CORRETTO : JdkDistribution.TEMURIN
     }
