@@ -135,6 +135,8 @@ export class HeliosServer {
             return ['>=21.x', 21]
         } else if(mcVersionAtLeast('1.17', this.rawServer.minecraftVersion)) {
             return ['>=17.x', 17]
+        } else if(mcVersionAtLeast('1.16', this.rawServer.minecraftVersion)) {
+            return ['>=16.x', 16]
         } else {
             return ['8.x', 8]
         }
@@ -143,7 +145,7 @@ export class HeliosServer {
     private defaultJavaPlatform(): JdkDistribution {
         return process.platform === Platform.DARWIN ? JdkDistribution.CORRETTO : JdkDistribution.TEMURIN
     }
- 
+
 }
 
 export class HeliosModule {
@@ -170,7 +172,7 @@ export class HeliosModule {
         } else {
             this.subModules = []
         }
-        
+
     }
 
     private resolveMavenComponents(): MavenComponents {
@@ -199,7 +201,7 @@ export class HeliosModule {
         } catch(err) {
             throw new Error(`Failed to resolve maven components for module ${this.rawModule.name} (${this.rawModule.id}) of type ${this.rawModule.type}. Reason: ${(err as Error).message}`)
         }
-        
+
     }
 
     private resolveRequired(): Required<HeliosRequired> {
@@ -246,9 +248,9 @@ export class HeliosModule {
                 return join(commonDir, 'mods', 'fabric', relativePath)
             case Type.File:
             default:
-                return join(instanceDir, this.serverId, relativePath) 
+                return join(instanceDir, this.serverId, relativePath)
         }
-        
+
     }
 
     public hasMavenComponents(): boolean {
