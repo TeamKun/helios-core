@@ -40,7 +40,9 @@ export async function downloadQueue(assets: Asset[], onProgress: (received: numb
 }
 
 export async function downloadFile(url: string, path: string, onProgress?: (progress: Progress) => void): Promise<void> {
-
+    if(!url) {
+        return
+    }
     await ensureDir(dirname(path))
 
 
@@ -106,7 +108,7 @@ export async function downloadFile(url: string, path: string, onProgress?: (prog
         } else {
             log.error(`Unknown or unretryable exception thrown during request to ${url}. Rethrowing exception.`)
         }
-        
+
         throw error
     }
 
