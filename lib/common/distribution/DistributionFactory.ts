@@ -136,7 +136,7 @@ export class HeliosServer {
         } else if(mcVersionAtLeast('1.17', this.rawServer.minecraftVersion)) {
             return ['>=17.x', 17]
         } else if(mcVersionAtLeast('1.16', this.rawServer.minecraftVersion)) {
-            return ['>=16.x', 16]
+            return ['16.x', 16]
         } else {
             return ['8.x', 8]
         }
